@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rda.framework/schemas/coverage.schema.json",
+  "title": "RDA Coverage Record",
+  "description": "Every skill declares what it actually looked at. A finding without a coverage record is an anecdote. A silence without a coverage record is a lie by omission.",
+  "type": "object",
+  "required": ["coverage_id","skill_id","population","inspected","method","blind_spots"],
+  "properties": {
+    "coverage_id": {"type":"string"},
+    "skill_id": {"type":"string"},
+    "population": {"type":"object","required":["definition","count","source"],"properties":{
+      "definition":{"type":"string","description":"e.g. 'all HTTP route declarations across 41 services'"},
+      "count":{"type":"integer","description":"Denominator, produced by RDA-02 census, not estimated."},
+      "source":{"type":"string","description":"Deterministic command that produced the denominator."}
+    }},
+    "inspected": {"type":"object","required":["count","selection"],"properties":{
+      "count":{"type":"integer"},
+      "selection":{"type":"string","enum":["EXHAUSTIVE","RISK_WEIGHTED","STRATIFIED_RANDOM","HOTSPOT","CONVENIENCE"],
+        "description":"CONVENIENCE sampling caps any derived finding at C1 and must be disclosed in the executive summary."},
+      "selection_rationale":{"type":"string"},
+      "seed":{"type":"string","description":"Required for STRATIFIED_RANDOM so the sample is reproducible."}
+    }},
+    "coverage_score": {"type":"number","minimum":0,"maximum":1},
+    "method": {"type":"string","description":"How inspection was performed: deterministic tool, AST query, grep+range read, full read."},
+    "blind_spots": {"type":"array","items":{"type":"object","required":["area","reason","impact"],"properties":{
+      "area":{"type":"string"},
+      "reason":{"type":"string","enum":["OUT_OF_SCOPE","TOOL_UNAVAILABLE","BINARY_OR_GENERATED","BUDGET_EXHAUSTED","ACCESS_DENIED","UNPARSEABLE","REQUIRES_RUNTIME"]},
+      "impact":{"type":"string","description":"What conclusions cannot be drawn because of this gap."}
+    }}},
+    "expiry": {"type":"string","description":"Commit SHA at which this coverage record becomes stale."}
+  }
+}

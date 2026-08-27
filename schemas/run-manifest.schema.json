@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rda.framework/schemas/run-manifest.schema.json",
+  "title": "RDA Run Manifest",
+  "description": "Reproducibility record. Written by RDA-01 at scope time, appended by every skill. An audit without a manifest is not auditable and must not be presented as one.",
+  "type": "object",
+  "required": ["run_id","started_at","scope","agent","skills_planned","determinism"],
+  "properties": {
+    "run_id": {"type":"string"},
+    "started_at": {"type":"string","format":"date-time"},
+    "completed_at": {"type":"string","format":"date-time"},
+    "scope": {
+      "type":"object","required":["repositories","commit_pins","exclusions"],
+      "properties":{
+        "repositories":{"type":"array","items":{"type":"object","required":["name","remote","commit","default_branch"],"properties":{
+          "name":{"type":"string"},"remote":{"type":"string"},"commit":{"type":"string"},
+          "default_branch":{"type":"string"},"shallow":{"type":"boolean"},
+          "lfs_present":{"type":"boolean"},"submodules":{"type":"array","items":{"type":"string"}}
+        }}},
+        "commit_pins":{"type":"string","description":"All findings are asserted AS OF these commits and expire when they move."},
+        "exclusions":{"type":"array","items":{"type":"string"},"description":"Paths excluded from inspection and why. Exclusions are coverage gaps, not silence."},
+        "out_of_scope_systems":{"type":"array","items":{"type":"string"},"description":"Runtime, cloud accounts, ticketing, contracts not available to this run."}
+      }
+    },
+    "agent": {
+      "type":"object","required":["platform","model","invoked_skill_versions"],
+      "properties":{
+        "platform":{"type":"string","enum":["codex","antigravity","claude-code","cursor","gemini-cli","windsurf","roocode","aider","openai-agents","copilot","other"]},
+        "model":{"type":"string","description":"Model identifier and version as reported by the host."},
+        "context_window":{"type":"integer"},
+        "invoked_skill_versions":{"type":"array","items":{"type":"string","description":"skill_id@semver"}},
+        "prompt_digest":{"type":"string","description":"Hash of the skill text actually loaded, so a report can be tied to the instruction set that produced it."}
+      }
+    },
+    "tools": {"type":"array","items":{"type":"object","required":["name","version"],"properties":{
+      "name":{"type":"string"},"version":{"type":"string"},"available":{"type":"boolean"},
+      "unavailable_reason":{"type":"string"},"degraded_mode_applied":{"type":"string"}
+    }}},
+    "skills_planned": {"type":"array","items":{"type":"string"}},
+    "skills_executed": {"type":"array","items":{"type":"object","required":["skill_id","status"],"properties":{
+      "skill_id":{"type":"string"},
+      "status":{"type":"string","enum":["COMPLETE","PARTIAL","SKIPPED","FAILED","ABORTED_BUDGET"]},
+      "coverage_score":{"type":"number","minimum":0,"maximum":1},
+      "findings":{"type":"integer"},"unknowns":{"type":"integer"},
+      "tokens_estimate":{"type":"integer"},"wall_clock_s":{"type":"number"},
+      "shards":{"type":"integer"},"reason":{"type":"string"}
+    }}},
+    "determinism": {
+      "type":"object",
+      "properties":{
+        "deterministic_layer":{"type":"string","description":"Commands whose output is byte-reproducible at the pinned commits."},
+        "non_deterministic_layer":{"type":"string","description":"Model-generated interpretation. Reproducible only to the level of the finding set, not wording."},
+        "reproduction_command":{"type":"string"},
+        "verification":{"type":"object","properties":{
+          "citations_checked":{"type":"integer"},"citations_failed":{"type":"integer"},
+          "sample_reverified":{"type":"integer"},"reverification_disagreements":{"type":"integer"}
+        }}
+      }
+    },
+    "attestation": {"type":"object","properties":{
+      "statement":{"type":"string","description":"Machine-generated analysis. Names the human accountable for acceptance, if any."},
+      "ai_generated":{"type":"boolean","const":true},
+      "reviewed_by_role":{"type":"string"}
+    }}
+  }
+}

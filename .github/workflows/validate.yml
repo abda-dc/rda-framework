@@ -1,0 +1,78 @@
+name: validate
+
+# The pack's claim is that its governance is enforced rather than asserted. That is only true if the
+# enforcement runs on every change, so CI runs the same gates the framework applies to an audit.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  selftest:
+    # Run on both to keep the pack honest about portability: the CRLF, path-encoding and
+    # python3-detection defects this suite now guards against were all Windows-only.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Self-test (pack, adapters, both linters, census)
+        shell: bash
+        run: python scripts/selftest.py
+
+      - name: Adapters contain no CRLF
+        shell: bash
+        run: |
+          # generate_adapters.py pins newline="\n". A CRLF here means someone hand-edited a
+          # generated file on Windows, which is exactly what the generator exists to prevent.
+          if grep -rlU $'\r' adapters/generated/ 2>/dev/null | grep .; then
+            echo "::error::CRLF found in generated adapters (listed above)"
+            exit 1
+          fi
+          echo "no CRLF in generated adapters"
+
+      - name: Shell scripts parse
+        shell: bash
+        run: |
+          for f in scripts/*.sh; do bash -n "$f" || exit 1; done
+          echo "all shell scripts parse"
+
+      - name: Schemas and templates are valid JSON
+        shell: bash
+        run: |
+          python - <<'PY'
+          import glob, json, sys
+          bad = []
+          for p in glob.glob("schemas/*.json") + glob.glob("templates/*.json"):
+              try:
+                  json.load(open(p, encoding="utf-8"))
+              except Exception as e:
+                  bad.append(f"{p}: {e}")
+          print("\n".join(bad) if bad else "all JSON parses")
+          sys.exit(1 if bad else 0)
+          PY
+
+      - name: Install into a scratch target
+        shell: bash
+        run: |
+          # Installing must not mutate the framework itself. Prove it by diffing the tree afterwards.
+          scripts/install.sh --profile P4A --target "$RUNNER_TEMP/rda-target" >/dev/null
+          test -d "$RUNNER_TEMP/rda-target/.agents/skills" || { echo "::error::install produced no skills"; exit 1; }
+          echo "installed $(ls "$RUNNER_TEMP/rda-target/.agents/skills" | wc -l) skills"
+          if ! git diff --quiet; then
+            echo "::error::install.sh modified the framework source tree:"
+            git --no-pager diff --stat
+            exit 1
+          fi
+          echo "framework tree unmodified by install"

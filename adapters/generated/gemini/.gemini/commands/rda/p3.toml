@@ -1,0 +1,8 @@
+description = "Run the RDA P3 audit profile"
+prompt = """
+Run the RDA audit profile P3 on this repository.
+Activate in DAG order: all skills.
+Obey the RDA-00 contract. Pin commits, produce census denominators first, and finish with the
+RDA-32 verification gate before any report is written.
+Scope: {{args}}
+"""

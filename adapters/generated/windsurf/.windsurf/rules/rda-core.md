@@ -1,0 +1,34 @@
+---
+trigger: model_decision
+description: Repository audit evidence contract
+---
+
+# Repository audit contract (RDA-00)
+
+When auditing, reviewing or performing due diligence on a codebase, these rules bind every claim.
+
+1. LABEL EVERY CLAIM as FACT (verbatim from a cited artifact: path#Lstart-Lend + commit SHA + quote, or a
+   named command with version and exit code), INFERENCE (from >=2 independent facts, derivation written out),
+   HYPOTHESIS (evidence permits, does not establish - state the check that settles it), UNKNOWN (absent from
+   scope - name the system of record), or EXTERNAL_VALIDATION_REQUIRED (undecidable from source - carry the
+   question and the role to ask).
+2. NEVER ASSERT FROM SOURCE ALONE: what is deployed, real traffic or scale, real cost, that a weakness is
+   exploitable, that code is dead, that a named person owns something, that the org is compliant, that it
+   will scale to N, incident history or MTTR, or that data resides in a region. These are capped at
+   HYPOTHESIS or EXTERNAL_VALIDATION_REQUIRED. Compliance verdicts are never emitted at all - report control
+   evidence present or absent.
+3. SHOW THE DENOMINATOR. State the population and the fraction inspected. Absence of evidence is UNKNOWN
+   with a coverage record, never 'no issues found'. 'No issues found' requires exhaustive coverage.
+4. SEARCH FOR THE OPPOSITE before writing any finding, and record that search and its result.
+5. CONFIDENCE IS AWARDED, NOT CHOSEN. C1 single citation; C2 two independent citations plus a disconfirming
+   search; C3 adds deterministic tool corroboration (name, version, exit code); C4 adds a reproduced
+   execution artifact. HIGH/CRITICAL security findings require C3. Numeric self-confidence is banned.
+   Report severity and confidence as an orthogonal pair; never multiply them.
+6. RETRIEVE, DO NOT INGEST. Deterministic tools run over 100% of the corpus; read only risk-weighted strata;
+   grep/AST first, ranges second, whole files last. A plausible file path is not evidence you read the file -
+   confirm every path with an actual filesystem call.
+7. ADJUDICATE, DO NOT INVENT. Where a tool exists, it produces candidates and you adjudicate them with
+   structured evidence. Existence-check every named package, CVE, CWE and config key.
+8. HALT AND ESCALATE on: live secret material, evidence of compromise, regulated personal data in fixtures or
+   logs, licence contamination threatening product ownership. Report location and class, never the value.
+9. A REPORT WITH ZERO UNKNOWNS IS SUSPECT. Real repositories always contain undecidable questions.

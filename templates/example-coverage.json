@@ -1,0 +1,21 @@
+{"coverage": [
+  {"coverage_id":"COV-RDA11-routes","skill_id":"RDA-11",
+   "population":{"definition":"all HTTP route declarations across all services","count":412,
+     "source":"rg -c --no-heading -e '@app\\.(get|post|put|patch|delete)' | awk -F: '{s+=$2} END{print s}'"},
+   "inspected":{"count":97,"selection":"RISK_WEIGHTED","selection_rationale":"routes touching money movement, authentication, or admin surfaces per census strata","seed":"n/a"},
+   "coverage_score":0.235,"method":"ast-grep route extraction + targeted range reads",
+   "blind_spots":[{"area":"GraphQL resolvers","reason":"UNPARSEABLE","impact":"authorisation posture of the GraphQL surface is undetermined"}],
+   "expiry":"a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"},
+  {"coverage_id":"COV-RDA24-hotpaths","skill_id":"RDA-24",
+   "population":{"definition":"request-handling modules in the web service","count":38,"source":"git ls-files services/web | wc -l"},
+   "inspected":{"count":9,"selection":"HOTSPOT","selection_rationale":"top change-frequency x size files from census hotspots.csv"},
+   "coverage_score":0.237,"method":"hotspot-ranked range reads",
+   "blind_spots":[{"area":"async worker paths","reason":"BUDGET_EXHAUSTED","impact":"scaling behaviour of background processing is unassessed"}],
+   "expiry":"a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"},
+  {"coverage_id":"COV-RDA06-edges","skill_id":"RDA-06",
+   "population":{"definition":"inter-service call edges resolvable from static imports and HTTP client constructions","count":214,"source":"ast-grep call-site extraction over services/*/src"},
+   "inspected":{"count":214,"selection":"EXHAUSTIVE","selection_rationale":"edge set is small enough to enumerate in full; blast-radius claims depend on it being complete"},
+   "coverage_score":1.0,"method":"static import graph + HTTP client call-site extraction",
+   "blind_spots":[{"area":"runtime service discovery","reason":"DYNAMIC","impact":"edges resolved only at runtime via service-registry lookup are not represented, so blast radius is a lower bound"}],
+   "expiry":"a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"}
+]}

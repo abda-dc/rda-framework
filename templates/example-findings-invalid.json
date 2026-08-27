@@ -1,0 +1,84 @@
+{
+  "_comment": "Adversarial fixture. EVERY finding here is deliberately malformed. scripts/selftest.py asserts that validate_findings.py rejects it, so 'the gate fails closed' is a tested property rather than a claim. Do not fix these findings.",
+  "findings": [
+    {
+      "id": "RDA-11-BAD001",
+      "skill_id": "RDA-11",
+      "run_id": "r1",
+      "title": "Everything wrong at once",
+      "claim_class": "FACT",
+      "statement": "The payment service is deployed in production, handles 40,000 requests per second, is SOC 2 compliant, and the auth bypass is exploitable; confidence 0.93.",
+      "evidence": [],
+      "confidence": {"level": "C4", "basis": ""},
+      "coverage_ref": "cov-does-not-exist",
+      "severity": {"level": "CRITICAL", "impact": "SEVERE", "likelihood": "LIKELY", "rationale": ""},
+      "how_to_refute": "",
+      "disconfirming_check": "",
+      "remediation": {"action": "Fix in 3 person-days", "effort_band": "S", "sequencing": "NOW"}
+    },
+    {
+      "id": "RDA-27-BAD002",
+      "skill_id": "RDA-27",
+      "run_id": "r1",
+      "title": "Dead code asserted as fact",
+      "claim_class": "INFERENCE",
+      "statement": "The legacy billing module is dead and can be removed safely.",
+      "evidence": [
+        {"kind": "GUESS", "locator": "src/legacy/billing.py"},
+        {"kind": "SOURCE", "locator": "not a valid locator at all", "independence_group": "g1"}
+      ],
+      "confidence": {"level": "C3", "basis": "felt right"},
+      "coverage_ref": "cov-does-not-exist",
+      "severity": {"level": "HIGH", "impact": "MAJOR", "likelihood": "POSSIBLE", "rationale": "removal risk", "exploitability_assessed": false},
+      "how_to_refute": "run it",
+      "disconfirming_check": ""
+    },
+    {
+      "id": "RDA-13-BAD003",
+      "skill_id": "RDA-13",
+      "run_id": "r1",
+      "title": "Vulnerability without exploitability, C0",
+      "claim_class": "HYPOTHESIS",
+      "statement": "A deserialisation vulnerability exists in the ingest worker.",
+      "evidence": [
+        {"kind": "SOURCE", "locator": "src/ingest.py#L10-L20"}
+      ],
+      "confidence": {"level": "C0", "basis": "none"},
+      "coverage_ref": "cov-does-not-exist",
+      "severity": {"level": "HIGH", "impact": "MAJOR", "likelihood": "POSSIBLE", "rationale": "unsafe pickle", "exploitability_assessed": false},
+      "how_to_refute": "check callers",
+      "disconfirming_check": "none performed"
+    },
+    {
+      "id": "RDA-25-BAD004",
+      "skill_id": "RDA-25",
+      "run_id": "r1",
+      "title": "External validation without a question",
+      "claim_class": "EXTERNAL_VALIDATION_REQUIRED",
+      "statement": "The cluster costs $42,000 per month.",
+      "evidence": [],
+      "confidence": {"level": "C1", "basis": "single source"},
+      "coverage_ref": "cov-does-not-exist",
+      "severity": {"level": "MEDIUM", "impact": "MODERATE", "likelihood": "POSSIBLE", "rationale": "spend"},
+      "how_to_refute": "read the bill",
+      "disconfirming_check": "none",
+      "external_validation": {"required": true}
+    },
+    {
+      "id": "RDA-06-BAD005",
+      "skill_id": "RDA-06",
+      "run_id": "r1",
+      "title": "Severity contradicts the RS-1 matrix and cites a coverage record that does not exist",
+      "claim_class": "INFERENCE",
+      "statement": "The notification service retries indefinitely on a poisoned message.",
+      "evidence": [
+        {"kind": "SOURCE", "locator": "src/notify/retry.py#L44-L61", "commit": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678", "quote": "while True: send(msg)", "independence_group": "g1"}
+      ],
+      "confidence": {"level": "C2", "basis": "single deterministic read"},
+      "coverage_ref": "cov-does-not-exist",
+      "severity": {"level": "LOW", "impact": "SEVERE", "likelihood": "LIKELY", "rationale": "downgraded by hand to avoid escalation"},
+      "how_to_refute": "Show a dead-letter path or a retry cap in the consumer configuration.",
+      "disconfirming_check": "Searched for maxRetries and DLQ configuration; blast radius bounded per COV-RDA99-nonexistent."
+    }
+  ]
+}

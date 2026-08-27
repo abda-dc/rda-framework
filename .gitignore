@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Census and audit run output. rda_census.sh writes here by convention; these are per-run
+# artifacts about a repository under audit and must never be committed to the framework.
+rda-out/
+*/rda-out/
+census.json
+loc.txt
+loc.json
+hotspots.csv
+
+# Findings and coverage records produced by a real audit. They quote source from the target
+# repository, so committing them here would leak the client's code into a public pack.
+findings.json
+coverage.json
+run-manifest.json
+
+# Installed adapter output, if anyone points --out at the repo
+adapters/generated-*/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/

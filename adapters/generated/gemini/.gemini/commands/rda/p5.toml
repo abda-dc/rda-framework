@@ -1,0 +1,8 @@
+description = "Run the RDA P5 audit profile"
+prompt = """
+Run the RDA audit profile P5 on this repository.
+Activate in DAG order: RDA-00 RDA-01 RDA-02 RDA-03 RDA-06 RDA-08 RDA-09 RDA-10 RDA-11 RDA-12 RDA-13 RDA-14 RDA-19 RDA-20 RDA-32 RDA-33 RDA-34 RDA-36.
+Obey the RDA-00 contract. Pin commits, produce census denominators first, and finish with the
+RDA-32 verification gate before any report is written.
+Scope: {{args}}
+"""

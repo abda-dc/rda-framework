@@ -1,0 +1,7 @@
+# Aider has no skill system: load the contract explicitly and keep it read-only/cacheable.
+read:
+  - CONVENTIONS.md
+  - AGENTS.md
+map-tokens: 4096
+map-refresh: auto
+cache-prompts: true

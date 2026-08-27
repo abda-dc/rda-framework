@@ -1,0 +1,58 @@
+{
+  "findings": [
+    {
+      "id": "RDA-11-AUTHZ01",
+      "skill_id": "RDA-11",
+      "run_id": "run-2026-08-27-a1b2c3",
+      "title": "Refund endpoint has no authorisation decorator in source",
+      "claim_class": "INFERENCE",
+      "statement": "The POST /refund route in the payments service is registered without any authorisation decorator, and the middleware allowlist does not cover the path.",
+      "derivation": "Fact 1 shows the route registered with only @app.post. Fact 2 shows the auth middleware applying to an explicit path allowlist that omits /refund. Together these establish that no authorisation check is applied to this route within this repository. It does not establish that the endpoint is reachable unauthenticated in production, which depends on gateway configuration outside this scope.",
+      "evidence": [
+        {"kind": "SOURCE", "locator": "services/payments/routes.py#L44-L51", "commit": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+         "quote": "@app.post(\"/refund\")\ndef refund(req):", "independence_group": "routes"},
+        {"kind": "SOURCE", "locator": "services/payments/auth.py#L18-L26", "commit": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+         "quote": "PROTECTED_PREFIXES = (\"/admin\", \"/internal\")", "independence_group": "middleware"},
+        {"kind": "TOOL_OUTPUT", "locator": "semgrep --config p/owasp-top-ten services/payments",
+         "tool": {"name": "semgrep", "version": "1.86.0", "exit_code": 1, "args": "--config p/owasp-top-ten --json",
+                  "output_digest": "sha256:9f2c..."}, "independence_group": "sast"}
+      ],
+      "confidence": {"level": "C3", "basis": "CC-1 s1: two independent source citations plus semgrep corroboration with version and exit code", "evidence_independence": 3},
+      "coverage_ref": "COV-RDA11-routes",
+      "severity": {"level": "HIGH", "impact": "MAJOR", "likelihood": "POSSIBLE",
+        "rationale": "Money movement without an authorisation check in application code; likelihood is POSSIBLE rather than LIKELY because upstream gateway enforcement has not been ruled out.",
+        "ssvc": "ATTEND", "exploitability_assessed": false},
+      "blast_radius": "Limited to the payments service refund path per the dependency edges cited in COV-RDA06-edges; no other service calls this handler.",
+      "how_to_refute": "Show an ingress, gateway or service-mesh policy that authenticates /refund before it reaches the application, or a decorator applied via a registration hook not visible at the route definition.",
+      "disconfirming_check": "Searched for gateway configs (rg -n 'refund' infra/ deploy/ --type yaml) and for decorator registration hooks (rg -n 'add_middleware|before_request' services/payments): no covering policy found in scope.",
+      "external_validation": {"required": true, "question": "Does the API gateway enforce authentication on /refund in production?",
+        "owner_role": "Platform / API gateway owner", "system_of_record": "Gateway configuration in the production cloud account"},
+      "remediation": {"action": "Apply the service's standard authorisation decorator to the refund route and add a negative test asserting 401 for anonymous callers.",
+        "effort_band": "S", "sequencing": "NOW", "prerequisite_finding_ids": []},
+      "standard_refs": ["CWE-862", "OWASP-ASVS-V4"],
+      "quarantined": false
+    },
+    {
+      "id": "RDA-24-SCALE01",
+      "skill_id": "RDA-24",
+      "run_id": "run-2026-08-27-a1b2c3",
+      "title": "In-process session state blocks horizontal scaling",
+      "claim_class": "HYPOTHESIS",
+      "statement": "Session state is held in a module-level dictionary, which would prevent correct behaviour across multiple replicas unless sticky routing is configured.",
+      "evidence": [
+        {"kind": "SOURCE", "locator": "services/web/session.py#L12-L19", "commit": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+         "quote": "_SESSIONS = {}", "independence_group": "session"}
+      ],
+      "confidence": {"level": "C1", "basis": "CC-1 s1: single citation, no independent corroboration available in scope", "evidence_independence": 1},
+      "coverage_ref": "COV-RDA24-hotpaths",
+      "severity": {"level": "MEDIUM", "impact": "MODERATE", "likelihood": "POSSIBLE",
+        "rationale": "Impact depends entirely on replica count and routing, neither of which is determinable from source."},
+      "how_to_refute": "Show sticky-session configuration at the load balancer, a single-replica deployment, or an external session store wired in at runtime.",
+      "disconfirming_check": "Searched deploy manifests for replica counts and session affinity (rg -n 'replicas|sessionAffinity' deploy/): no manifests present in scope.",
+      "external_validation": {"required": true, "question": "How many replicas run this service, and is session affinity enabled?",
+        "owner_role": "Service owner", "system_of_record": "Production deployment configuration"},
+      "remediation": {"action": "Move session state to a shared store before increasing replica count.", "effort_band": "M", "sequencing": "NEXT"},
+      "quarantined": false
+    }
+  ]
+}

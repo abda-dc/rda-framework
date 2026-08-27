@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rda.framework/schemas/finding.schema.json",
+  "title": "RDA Finding",
+  "description": "The single atomic output unit of every RDA skill. A report is an array of findings. Anything that is not expressible as a valid finding must not be asserted.",
+  "type": "object",
+  "required": ["id","skill_id","run_id","title","claim_class","statement","evidence","confidence","coverage_ref","severity","how_to_refute","disconfirming_check"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type":"string","pattern":"^RDA-[0-9]{2}-[A-Z0-9]{4,12}$","description":"Stable finding id, e.g. RDA-11-AUTHZ01"},
+    "skill_id": {"type":"string","pattern":"^RDA-[0-9]{2}$"},
+    "run_id": {"type":"string","description":"Foreign key to run-manifest.run_id"},
+    "title": {"type":"string","maxLength":120},
+    "claim_class": {
+      "type":"string",
+      "enum":["FACT","INFERENCE","HYPOTHESIS","UNKNOWN","EXTERNAL_VALIDATION_REQUIRED"],
+      "description":"FACT=verbatim from cited artifact or deterministic tool output. INFERENCE=derived from >=2 facts, derivation stated. HYPOTHESIS=plausible, unverified, check stated. UNKNOWN=required info absent from scope. EXTERNAL_VALIDATION_REQUIRED=undecidable from source artifacts alone."
+    },
+    "statement": {"type":"string","description":"The claim. Must be falsifiable and free of hedging adjectives."},
+    "derivation": {"type":"string","description":"REQUIRED when claim_class=INFERENCE. The explicit reasoning chain from cited facts to the claim."},
+    "evidence": {
+      "type":"array","minItems":0,
+      "items":{"$ref":"#/$defs/evidence"},
+      "description":"MUST be non-empty for FACT and INFERENCE. MAY be empty only for UNKNOWN."
+    },
+    "confidence": {
+      "type":"object","required":["level","basis"],"additionalProperties":false,
+      "properties":{
+        "level":{"type":"string","enum":["C0","C1","C2","C3","C4"]},
+        "basis":{"type":"string","description":"Which rule in CONFIDENCE-AND-COVERAGE.md awarded this level."},
+        "evidence_independence":{"type":"integer","minimum":0,"description":"Count of mutually independent evidence sources."}
+      }
+    },
+    "coverage_ref": {"type":"string","description":"Pointer to the coverage record (population, inspected, sampling method) this finding was drawn from."},
+    "severity": {
+      "type":"object","required":["level","impact","likelihood","rationale"],"additionalProperties":false,
+      "properties":{
+        "level":{"type":"string","enum":["INFO","LOW","MEDIUM","HIGH","CRITICAL"]},
+        "impact":{"type":"string","enum":["NEGLIGIBLE","MINOR","MODERATE","MAJOR","SEVERE"]},
+        "likelihood":{"type":"string","enum":["RARE","UNLIKELY","POSSIBLE","LIKELY","ALMOST_CERTAIN"]},
+        "rationale":{"type":"string"},
+        "ssvc":{"type":"string","enum":["TRACK","TRACK_STAR","ATTEND","ACT"],"description":"Security findings only."},
+        "exploitability_assessed":{"type":"boolean","description":"Security findings only. false => the finding is a weakness, not a vulnerability."}
+      }
+    },
+    "blast_radius": {"type":"string","description":"What else breaks or is exposed if this is real. Must cite the dependency evidence that establishes the propagation path."},
+    "how_to_refute": {"type":"string","description":"The concrete command, file, or interview question that would prove this finding wrong."},
+    "disconfirming_check": {"type":"string","description":"The search actually performed for contradicting evidence, and its result."},
+    "external_validation": {
+      "type":"object","additionalProperties":false,
+      "properties":{
+        "required":{"type":"boolean"},
+        "question":{"type":"string","description":"Exact question to ask a human/system."},
+        "owner_role":{"type":"string","description":"Role, never a named individual inferred from git history."},
+        "system_of_record":{"type":"string","description":"e.g. cloud billing console, APM, ticketing, contract repository."}
+      }
+    },
+    "remediation": {
+      "type":"object","additionalProperties":false,
+      "properties":{
+        "action":{"type":"string"},
+        "effort_band":{"type":"string","enum":["XS","S","M","L","XL","UNKNOWN"],"description":"Bands only. Never emit person-day point estimates from source inspection alone."},
+        "sequencing":{"type":"string","enum":["NOW","NEXT","LATER","ACCEPT_RISK"]},
+        "prerequisite_finding_ids":{"type":"array","items":{"type":"string"}}
+      }
+    },
+    "standard_refs": {"type":"array","items":{"type":"string"},"description":"CWE / OWASP / NIST SSDF / ISO 25010 / control ids. Reference only; never asserts certification status."},
+    "quarantined": {"type":"boolean","default":false,"description":"Set by the citation verifier when evidence fails to resolve. Quarantined findings MUST NOT appear in any executive output."}
+  },
+  "$defs": {
+    "evidence": {
+      "type":"object","required":["kind","locator"],"additionalProperties":false,
+      "properties":{
+        "kind":{"type":"string","enum":["SOURCE","CONFIG","TOOL_OUTPUT","VCS_HISTORY","DOC","TEST_RESULT","RUNTIME_ARTIFACT","EXTERNAL_ATTESTATION"]},
+        "locator":{"type":"string","description":"repo-relative path with line range (path/to/file.py#L120-L138), or command string for TOOL_OUTPUT."},
+        "commit":{"type":"string","description":"Commit SHA the evidence was read at. Required for SOURCE/CONFIG/VCS_HISTORY/DOC -- the kinds verify_citations.py re-reads from the tree."},
+        "quote":{"type":"string","maxLength":600,"description":"Verbatim excerpt. Must match the artifact byte-for-byte after whitespace normalisation."},
+        "quote_sha256":{"type":"string","description":"Hash of the normalised quote, recomputed by verify_citations.py."},
+        "tool":{"type":"object","additionalProperties":false,"properties":{
+          "name":{"type":"string"},"version":{"type":"string"},"exit_code":{"type":"integer"},
+          "args":{"type":"string"},"output_digest":{"type":"string"}
+        }},
+        "independence_group":{"type":"string","description":"Evidence sharing a group id is NOT independent (e.g. two lines of the same file, or a tool and its own cached report)."}
+      }
+    }
+  }
+}
