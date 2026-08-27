@@ -185,6 +185,10 @@ def main():
                 drift.append(f"MISSING   {path}"); continue
             with open(path, encoding="utf-8", newline="") as fh:
                 on_disk = fh.read()
+            # Compare content, not line endings. A Windows checkout can legitimately hold CRLF in the
+            # working tree, and failing here would report drift for a file nobody touched. The LF
+            # guarantee is enforced where it belongs -- .gitattributes pins eol=lf, so the committed
+            # blob is LF on every platform -- and CI greps the tree to confirm it.
             if on_disk.replace("\r\n", "\n") != text.replace("\r\n", "\n"):
                 drift.append(f"DIFFERS   {path}")
         expected = {os.path.normpath(p) for p in PENDING}

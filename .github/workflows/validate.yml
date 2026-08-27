@@ -34,13 +34,29 @@ jobs:
       - name: Adapters contain no CRLF
         shell: bash
         run: |
-          # generate_adapters.py pins newline="\n". A CRLF here means someone hand-edited a
-          # generated file on Windows, which is exactly what the generator exists to prevent.
+          # generate_adapters.py pins newline="\n" and .gitattributes pins eol=lf, so the working tree
+          # must be LF on Linux and Windows alike. A CRLF here means one of those guarantees slipped.
           if grep -rlU $'\r' adapters/generated/ 2>/dev/null | grep .; then
             echo "::error::CRLF found in generated adapters (listed above)"
             exit 1
           fi
           echo "no CRLF in generated adapters"
+
+      - name: Scripts with a shebang are executable
+        shell: bash
+        run: |
+          # README documents `scripts/install.sh --profile ...` as a direct invocation. Without the
+          # exec bit in the index that is "Permission denied" on Linux and macOS, which is how this
+          # check earned its place.
+          fail=0
+          git ls-files -s scripts/ | while read -r mode _hash _stage path; do
+            if [ "$(head -c 2 "$path")" = '#!' ] && [ "$mode" != "100755" ]; then
+              echo "::error::$path has a shebang but is committed with mode $mode (expected 100755)"
+              exit 1
+            fi
+          done || fail=1
+          if [ "$fail" -ne 0 ]; then exit 1; fi
+          echo "all shebang scripts are executable"
 
       - name: Shell scripts parse
         shell: bash

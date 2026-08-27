@@ -1,0 +1,17 @@
+# The adapter files under adapters/generated/ are emitted by scripts/generate_adapters.py, which pins
+# newline="\n". Without this, a Windows checkout with core.autocrlf=true rewrites them to CRLF in the
+# working tree, and anything that inspects the bytes -- a rule loader, a shell script, a CRLF check --
+# sees a file the generator never produced. Pin LF everywhere so the working tree matches the blob on
+# every platform.
+* text=auto eol=lf
+
+# Shell scripts must be LF regardless: CRLF breaks the shebang line on Linux and macOS.
+*.sh text eol=lf
+
+# Never let these be normalised if any are added later.
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
