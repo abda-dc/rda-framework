@@ -57,8 +57,10 @@ populations, not impressions from reading: every route in `entrypoints.json` wit
 middleware on its chain; every route with no authorisation check between handler entry and data access; crypto
 call sites using algorithms the config marks legacy; `subprocess`/`exec` sinks fed by request-scoped variables;
 deserialisation sinks (`pickle.loads`, `yaml.load` without `SafeLoader`, `ObjectInputStream`); outbound HTTP
-built from user-controlled hosts (SSRF); upload handlers with no type or size constraint. Each query is named
-and its population counted.
+built from user-controlled hosts (SSRF); secret, token, HMAC and signature comparisons made with `==`, `!=` or
+`strcmp` instead of a constant-time primitive (`hmac.compare_digest`, `crypto.timingSafeEqual`,
+`subtle.ConstantTimeCompare`); upload handlers with no type or size constraint. All eight queries run: each is
+named, its population counted, and a run reporting fewer than eight populations is incomplete, not partial.
 
 **Every member of every population gets its own verdict and, if confirmed, its own finding.** A query is not
 answered by its first hit, and a stated count is not an adjudication: emit one `adjudication` row per member
@@ -138,15 +140,13 @@ Whether a gateway, WAF or mesh enforces the control outside this repository · w
 internet-reachable · whether the path is enabled in production config.
 
 ## Known limitations
-Three ways this skill produces a wrong answer. **(a) The plausible-vulnerability flood** — a fluent
-injection report about a sink whose structure the attacker does not control. Constrained by the generator
-rule, the C3 floor and step 5b; constrained, not eliminated. A seeded trial reported `eval()` over a
-module-level constant as code injection, falsely claiming caller-supplied values reached it; re-run with
-step 5b the same candidate was correctly discarded. **(b) The unauthenticated-endpoint scare** — auth
-enforced by a middleware or base class nobody opened; prevented by step 4's chain join and step 7's
-opposite-direction query, with `MITIGATED` requiring a cited control. **(c) Counting instead of judging**
-— the same trial disposed of a seven-route population with the phrase "All auth-checked", burying a
-token-minting route. A count is not a verdict; step 4 therefore requires a per-member `adjudication` row.
+**(a) The plausible-vulnerability flood** — a fluent injection report about a sink whose structure the attacker
+does not control; constrained by the generator rule, the C3 floor and step 5b, not eliminated. A seeded trial
+called `eval()` over a module constant code injection, then discarded it correctly once 5b applied. **(b) The
+unauthenticated-endpoint scare** — auth enforced by middleware or a base class nobody opened; prevented by step
+4's chain join and step 7's opposite-direction query, with `MITIGATED` requiring a cited control. **(c) Counting
+instead of judging** — the same trial buried a token-minting route under "All auth-checked", claiming seven
+adjudications over six routes. A count is not a verdict; step 4 requires a per-member `adjudication` row.
 
 ## Success criteria
 Every finding traces to a generator id · none asserts exploitability · every injection-class finding carries a
