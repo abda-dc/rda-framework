@@ -56,7 +56,7 @@ New here? Read [`docs/00-START-HERE.md`](docs/00-START-HERE.md).
 ## Verify it works
 
 ```bash
-python3 scripts/selftest.py                                               # 15 assertions, both directions
+python3 scripts/selftest.py                          # every gate, both directions (70/70 codes)
 ```
 
 Or run the gates individually:
@@ -81,9 +81,10 @@ tree without touching it, so "generated, never hand-maintained" is verified rath
 `validate_pack.py` reads profile membership straight out of `install.sh` and fails if any profile is not closed
 under the dependency graph.
 
-Both linters are tested in **both** directions. `templates/example-findings-invalid.json` is a deliberately
-malformed fixture that must trip 48 violations across 26 codes; the conforming example must trip none. A gate
-that quietly stopped enforcing would pass a one-sided test and fail this one.
+Both linters are tested in **both** directions, and every code either linter can emit is proven to fire by a
+deliberate violation — 70/70 codes. `templates/example-findings-invalid.json` is a malformed fixture that must
+trip 44 violations across 28 distinct codes; the conforming example must trip none. A gate that quietly stopped
+enforcing would pass a one-sided test and fail this one, and a code added without a test fails the suite.
 
 ## Licence
 
