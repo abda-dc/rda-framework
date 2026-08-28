@@ -81,13 +81,20 @@ UNDECIDABLE = [
     (r"\bdata (is|are) stored in (the )?[a-z-]+ region\b", "HYPOTHESIS"),
 ]
 # Claims that may never be emitted at all
+_STD = r"(SOC ?2|ISO ?27001|PCI[- ]DSS|HIPAA|FedRAMP)"
+_COMPLIANCE = "compliance verdict -- RDA reports control evidence present/absent only (ES-1 s2)"
 FORBIDDEN = [
-    (r"\b(is|are) (SOC ?2|ISO ?27001|PCI[- ]DSS|HIPAA|FedRAMP)[- ]?(compliant|certified)\b",
-     "compliance verdict -- RDA reports control evidence present/absent only (ES-1 s2)"),
+    (rf"\b(is|are) {_STD}[- ]?(compliant|certified)\b", _COMPLIANCE),
+    # Same verdict, other word order. "is compliant with SOC 2" escaped the pattern above.
+    (rf"\b(is|are) (fully |now |already )?(compliant|certified) (with|under|against|to) {_STD}\b", _COMPLIANCE),
     (r"\bconfidence\W{0,3}(0?\.\d+|\d{1,3}\s?%)", "numeric self-confidence is banned (CC-1 s0); use the C0-C4 ladder"),
     (r"\b\d+(\.\d+)?\s*(person|engineer|dev)[- ](days?|hours?)\b", "person-day point estimate -- use effort bands (BSR-10)"),
 ]
 LOCATOR = re.compile(r"^[^#\s]+(#L\d+(-L?\d+)?)?$")
+# LOCATOR leaves the line range optional because a TOOL_OUTPUT locator is a command string. Evidence that
+# carries a verbatim quote has no such excuse: if you can quote it you can say which lines you quoted, and
+# a whole-file citation is exactly how a reviewer loses the ability to check the claim. E017 is the gate.
+LOCATOR_LINES = re.compile(r"^[^#\s]+#L\d+(-L?\d+)?$")
 
 # --- minimal JSON Schema subset -------------------------------------------------------------------
 # Covers exactly the constructs the RDA schemas use: type, required, properties, additionalProperties,
@@ -161,6 +168,9 @@ def check(f, out, coverage_ids, coverage_meta, schema):
         if e.get("kind") in PINNED_KINDS:
             if not e.get("commit"): err(out, fid, "E014", f"evidence[{i}] missing commit pin")
             if not e.get("quote"): err(out, fid, "E015", f"evidence[{i}] missing verbatim quote")
+            if e.get("locator") and not LOCATOR_LINES.match(e["locator"]):
+                err(out, fid, "E017", f"evidence[{i}] {e.get('kind')} locator '{e['locator']}' has no line "
+                                      f"range; a quote-bearing citation must resolve to path#Lx-Ly (ES-1 s3)")
         if e.get("kind") == "TOOL_OUTPUT":
             t = e.get("tool") or {}
             if not (t.get("name") and t.get("version") and "exit_code" in t):
