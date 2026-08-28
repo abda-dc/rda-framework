@@ -170,11 +170,15 @@ COV_FINDING.update({"id": "F-1", "coverage_ref": "COV-1",
                                          "constant, so no attacker-controlled structure reaches the sink."})
 
 
-def lint_coverage(adjudication, inspected_count):
+def lint_coverage(adjudication, inspected_count, note=None):
     rec = {"coverage_id": "COV-1", "skill_id": "rda-11",
            "population": {"definition": "routes", "count": inspected_count, "source": "grep"},
            "inspected": {"count": inspected_count, "selection": "EXHAUSTIVE"},
-           "method": "read", "blind_spots": [], "adjudication": adjudication}
+           "method": "read", "blind_spots": []}
+    if adjudication is not None:
+        rec["adjudication"] = adjudication
+    if note is not None:
+        rec["note"] = note
     paths = []
     for payload in ([COV_FINDING], {"coverage": [rec]}):
         fd, p = tempfile.mkstemp(suffix=".json")
@@ -207,6 +211,21 @@ _, cov_ok = lint_coverage([{"member": "/health", "verdict": "NOT_APPLICABLE", "b
                             "basis": "no tenant check"}], 2)
 check("an honestly adjudicated population passes the coverage gate",
       not any(c in cov_ok for c in ("[E066]", "[E067]", "[E068]")), cov_ok.strip()[-300:])
+
+# E066-E068 only bite once an adjudication list exists, so omitting the list entirely was still a way
+# out. Disposing of a whole population in one sentence is itself a verdict on every member, and the
+# run that motivated this fix did exactly that: "members 7, adjudicated 7 ... All auth-checked."
+_, cov_blanket = lint_coverage(None, 6, note="Six route handlers reviewed. All auth-checked.")
+check("a blanket verdict over a population with no per-member record is rejected (E069)",
+      "[E069]" in cov_blanket, cov_blanket.strip()[-300:])
+
+_, cov_negblanket = lint_coverage(None, 6, note="Reviewed the route table; no endpoints are unprotected.")
+check("the same blanket verdict stated in the negative is also rejected (E069)",
+      "[E069]" in cov_negblanket, cov_negblanket.strip()[-300:])
+
+_, cov_census = lint_coverage(None, 34, note="All 34 tracked files read at HEAD. git ls-files | wc -l = 34.")
+check("an honest census that counts without disposing is still allowed",
+      "[E069]" not in cov_census, cov_census.strip()[-300:])
 
 
 fd, badpath = tempfile.mkstemp(suffix=".json")

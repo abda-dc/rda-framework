@@ -24,6 +24,21 @@ EV_KINDS = {"SOURCE","CONFIG","TOOL_OUTPUT","VCS_HISTORY","DOC","TEST_RESULT","R
 # would be quarantined at verification despite being schema-valid.
 PINNED_KINDS = {"SOURCE", "CONFIG", "VCS_HISTORY", "DOC"}
 
+# A verdict word applied to a whole population. Deliberately excludes action verbs ("read",
+# "listed", "enumerated") so an honest census note stays legal while a blanket disposal does not.
+BLANKET_RE = re.compile(
+    # "all X are safe" / "every sink was verified"
+    r"(?:\b(?:all|every|none|no)\b[^.]{0,70}?\b("
+    r"checked|safe|clean|verified|validated|sanitis(?:ed)?|sanitiz(?:ed)?|"
+    r"parameteris(?:ed)?|parameteriz(?:ed)?|guarded|protected|authoris(?:ed)?|authoriz(?:ed)?|"
+    r"authenticated|mitigated|benign|non-exploitable|secure|correct|fine"
+    r")\b)"
+    # ...and the same verdict stated in the negative: "no endpoints are unprotected"
+    r"|(?:\b(?:no|none|not one|zero|nothing)\b[^.]{0,70}?\b("
+    r"unprotected|unauthenticated|unauthoris(?:ed)?|unauthoriz(?:ed)?|unvalidated|"
+    r"vulnerable|exploitable|unsafe|insecure|affected|at risk|impacted"
+    r")\b)", re.I)
+
 # Injection-class weaknesses turn on one question: does the attacker control the executed *structure*, or
 # only a value substituted into it? RDA-11 s5b requires that answer in writing before the verdict, because
 # validation against a seeded repository showed the "plausible-vulnerability flood" the skill documents is
@@ -319,6 +334,13 @@ def main():
         cid = c.get("coverage_id", "<no coverage_id>")
         rows = c.get("adjudication")
         if not isinstance(rows, list):
+            # A census may legitimately state only a count ("all 34 tracked files read at HEAD").
+            # Disposing of a whole population in one sentence is a different act: it is a verdict on
+            # every member, and a verdict owes a per-member record. This is the exact shape of the
+            # regression above, so it is caught even when `adjudication` is omitted entirely.
+            if BLANKET_RE.search(str(c.get("note", "") or "")):
+                out.append((cid, "E069", "note disposes of the whole population in one phrase but no "
+                                         "adjudication list is present; a blanket verdict owes a per-member record"))
             continue
         rows = [r for r in rows if isinstance(r, dict)]
         inspected = (c.get("inspected") or {}).get("count")
