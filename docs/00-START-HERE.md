@@ -56,7 +56,7 @@ over 100% of the corpus, model reading over risk-weighted strata, and adjudicati
 asserts dead code as fact, carries a numeric self-confidence, quotes a person-day estimate, or claims C3 without
 a tool result — and `verify_citations.py` re-reads every quote at the pinned commit and quarantines what does
 not resolve. Both are tested in both directions: `templates/example-findings-invalid.json` is a deliberately
-malformed fixture that trips **48 violations across 26 distinct codes**, while the conforming example must
+malformed fixture that trips **44 violations across 28 distinct codes**, while the conforming example must
 trip none. `scripts/selftest.py` asserts both, so a gate that silently stopped enforcing would fail CI.
 
 ---
@@ -64,7 +64,7 @@ trip none. `scripts/selftest.py` asserts both, so a gate that silently stopped e
 ## Try it in ninety seconds
 
 ```bash
-python3 scripts/selftest.py                              # all of the below, asserted (15 checks)
+python3 scripts/selftest.py                              # every gate, both directions (70/70 codes)
 
 python3 scripts/validate_pack.py skills --budgets        # conformance, profile closure, metadata budgets
 bash    scripts/rda_census.sh /path/to/repo ./rda-out    # deterministic denominators
@@ -90,7 +90,7 @@ findings file and a real checkout to see it pass.
 | Merges / splits / additions vs the brief's 37 domains | 6 merged · 1 split · **5 added** |
 | Execution profiles | 7, all dependency-closed |
 | Governance standards | 5, plus 16 named anti-hallucination controls |
-| Machine-enforced rules | 30+ error codes across two linters |
+| Machine-enforced rules | 70 error codes across two linters, each proven to fire |
 | Target environments | 10 (2 retargeted after research) |
 
 ## What this framework will not do

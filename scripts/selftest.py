@@ -530,6 +530,29 @@ check(f"every enforcement code is exercised ({len(ALL_CODES) - len(missing)}/{le
 check("the unproven-code list has no stale entries", not stale,
       "these are now exercised and should be removed from UNPROVEN: " + ", ".join(stale))
 
+# --- 7. the documentation tells the truth -----------------------------------------------------------
+# The README claimed "48 violations across 26 codes" and "15 assertions" long after both figures had changed;
+# the fixture actually trips 44 across 28, and the suite runs far more than 15. Numbers in prose rot silently,
+# which is precisely the failure this pack exists to prevent, so the figures the docs quote are measured here.
+print("\n[7] documented figures match measured ones")
+
+_, _inv_out = run(PY, script("validate_findings.py"),
+                  os.path.join(ROOT, "templates", "example-findings-invalid.json"))
+_inv_codes = CODE_RE.findall(_inv_out)
+_n_viol, _n_codes = len(_inv_codes), len(set(_inv_codes))
+
+for _d in (os.path.join(ROOT, "README.md"), os.path.join(ROOT, "docs", "00-START-HERE.md")):
+    _name = os.path.basename(_d)
+    _t = open(_d, encoding="utf-8").read()
+    _m = re.search(r"(\d+) violations across (\d+)[^\d]{0,15}codes", _t)
+    check(f"{_name} quotes the real invalid-fixture figures",
+          _m is not None and (int(_m.group(1)), int(_m.group(2))) == (_n_viol, _n_codes),
+          f"doc says {_m.groups() if _m else '(no figure found)'}, measured ({_n_viol}, {_n_codes})")
+    _n = len(ALL_CODES)
+    check(f"{_name} quotes the real enforcement-code total",
+          f"{_n}/{_n} codes" in _t or f"{_n} error codes" in _t,
+          f"neither '{_n}/{_n} codes' nor '{_n} error codes' appears in {_name}")
+
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")
