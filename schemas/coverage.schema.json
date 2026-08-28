@@ -21,6 +21,12 @@
       "seed":{"type":"string","description":"Required for STRATIFIED_RANDOM so the sample is reproducible."}
     }},
     "coverage_score": {"type":"number","minimum":0,"maximum":1},
+    "adjudication": {"type":"array","description":"One row per inspected member. Required whenever the population is adjudicated rather than merely counted: inspected.count must equal this array's length, so the number is derived rather than asserted. A single blanket verdict covering many members is not adjudication.","items":{"type":"object","required":["member","verdict"],"properties":{
+      "member":{"type":"string","description":"Stable identifier for the member: a locator, route, dependency name or object id. Must be distinct within the record."},
+      "verdict":{"type":"string","enum":["CONFIRMED_WEAKNESS","MITIGATED","NOT_APPLICABLE","UNDECIDABLE"]},
+      "ref":{"type":"string","description":"Finding id carrying this member's verdict. Mandatory when the verdict is CONFIRMED_WEAKNESS, so a confirmed member cannot be counted and then silently dropped."},
+      "basis":{"type":"string","description":"What was read to reach this verdict."}
+    }}},
     "method": {"type":"string","description":"How inspection was performed: deterministic tool, AST query, grep+range read, full read."},
     "blind_spots": {"type":"array","items":{"type":"object","required":["area","reason","impact"],"properties":{
       "area":{"type":"string"},

@@ -61,10 +61,10 @@ built from user-controlled hosts (SSRF); upload handlers with no type or size co
 and its population counted.
 
 **Every member of every population gets its own verdict and, if confirmed, its own finding.** A query is not
-answered by its first hit: enumerate, adjudicate each member, print `<query>: <n> members, <n> adjudicated`.
-An unadjudicated member is a counted blind spot, never a silent omission. The second instance is usually the
-unguarded one, because the first is where attention went — validation caught a weak comparison confirmed in the
-token path but missed in ops-console, and an unauthorised route raised while its token-minting sibling was not.
+answered by its first hit, and a stated count is not an adjudication: emit one `adjudication` row per member
+per RDA-00 step 3, so `inspected.count` is the length of that list. A blanket phrase covering the whole
+population is not a verdict. Validation caught both shapes — a weak comparison confirmed in the token path but
+missed in ops-console, and an unauthorised route swept into the sentence "All auth-checked".
 
 **5. Adjudicate one candidate at a time, with flow context.** Read the sink, the source, every hop between, the
 framework's escaping behaviour, the middleware chain and the config that enables the control. Emit exactly one
@@ -138,21 +138,21 @@ Whether a gateway, WAF or mesh enforces the control outside this repository · w
 internet-reachable · whether the path is enabled in production config.
 
 ## Known limitations
-Three ways this skill produces a wrong answer. **(a) The plausible-vulnerability flood** — a fluent injection
-report about an already-parameterised query, or a sink whose structure the attacker does not control.
-Constrained by the generator rule, the provenance field, the C3 floor and step 5b; **constrained, not
-eliminated.** Validation against a seeded repository showed it survives when no engine is installable: under
-the degraded step-2 path an `eval()` over a module-level constant was reported as MAJOR code injection, once
-with the explicit and false claim that caller-supplied values reached it. **(b) The unauthenticated-endpoint
-scare** — auth enforced by a middleware, gateway or base class nobody opened; prevented by step 4's chain join
-and step 7's opposite-direction query, with `MITIGATED` requiring a cited control. **(c) First-instance
-stopping** — a class closed at its first site while a second goes unexamined; prevented only by step 4's
-population count, the one control here that is counted, not asserted.
+Three ways this skill produces a wrong answer. **(a) The plausible-vulnerability flood** — a fluent
+injection report about a sink whose structure the attacker does not control. Constrained by the generator
+rule, the C3 floor and step 5b; constrained, not eliminated. A seeded trial reported `eval()` over a
+module-level constant as code injection, falsely claiming caller-supplied values reached it; re-run with
+step 5b the same candidate was correctly discarded. **(b) The unauthenticated-endpoint scare** — auth
+enforced by a middleware or base class nobody opened; prevented by step 4's chain join and step 7's
+opposite-direction query, with `MITIGATED` requiring a cited control. **(c) Counting instead of judging**
+— the same trial disposed of a seven-route population with the phrase "All auth-checked", burying a
+token-minting route. A count is not a verdict; step 4 therefore requires a per-member `adjudication` row.
 
 ## Success criteria
 Every finding traces to a generator id · none asserts exploitability · every injection-class finding carries a
-completed `attacker_controls` chain · every structural query prints `members` and `adjudicated`, equal or the
-shortfall counted · every HIGH/CRITICAL is C3+ with an SSVC decision · the discard list is published.
+completed `attacker_controls` chain · every adjudicated population ships one `adjudication` row per member with
+`inspected.count` equal to that list · every HIGH/CRITICAL is C3+ with an SSVC decision · the discard list is
+published.
 
 ## Example prompts
 - Claude Code / Cursor: "Run rda-11-security-posture-review: semgrep and CodeQL first, then adjudicate each candidate against the RDA-03 route table."

@@ -40,10 +40,13 @@ resides in a region (`HYPOTHESIS` — IaC is intent, not state).
 examined and what fraction of it it saw, using the census counts from RDA-02. "Reviewed the codebase" is a lie
 when you read 3% of it. Absence of evidence is `UNKNOWN` with a coverage record, never "no issues found".
 `No issues found` requires exhaustive coverage of a stated population. **A population is not answered by its
-first interesting member.** Where a section adjudicates a population, every member gets its own verdict and
-every confirmed member its own finding; report `<population>: <n> members, <n> adjudicated`. A defect class
-seldom occurs once, and the second site is usually the unguarded one — the first is where attention stopped.
-A member left unadjudicated is a counted blind spot in the coverage record, never a silent omission.
+first interesting member, and a count is not an adjudication.** Where a section adjudicates a population, the
+coverage record carries one `adjudication` row per inspected member — member id, verdict, and for
+`CONFIRMED_WEAKNESS` the finding id that carries it — so `inspected.count` is the length of that list rather
+than a number asserted beside it. A blanket sentence disposing of many members at once ("all auth-checked") is
+not a verdict and does not count as one. The second site is usually the unguarded one, because the first is
+where attention stopped; a member you cannot resolve is `UNDECIDABLE` and a declared blind spot, never a
+silent omission.
 
 **4. Search for the opposite.** Before writing any finding, run one query that would disprove it (the auth
 middleware you did not open, the caller you did not grep for, the config that overrides the default). Record

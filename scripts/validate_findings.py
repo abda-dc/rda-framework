@@ -279,14 +279,15 @@ def main():
     except Exception as e:
         print(f"WARN: finding schema unreadable at {schema_path} ({e}); schema checks skipped")
 
-    cov_ids, cov_meta = set(), {}
+    cov_ids, cov_meta, cov_recs = set(), {}, []
     if a.coverage:
         try:
             cov = json.load(open(a.coverage, encoding="utf-8"))
             recs = cov if isinstance(cov, list) else cov.get("coverage", [])
-            cov_ids = {c.get("coverage_id") for c in recs}
+            cov_recs = [c for c in recs if isinstance(c, dict)]
+            cov_ids = {c.get("coverage_id") for c in cov_recs}
             cov_meta = {c.get("coverage_id"): {"selection": (c.get("inspected") or {}).get("selection"),
-                                               "score": c.get("coverage_score")} for c in recs}
+                                               "score": c.get("coverage_score")} for c in cov_recs}
         except Exception as e:
             print(f"WARN: coverage file unreadable ({e}); skipping coverage cross-check")
 
@@ -307,6 +308,38 @@ def main():
     # Summary statistics below index into findings; a non-object would crash them after the violations
     # above were already collected, losing the report the operator needs.
     findings = [f for f in findings if isinstance(f, dict)]
+
+    # A stated adjudication count is worth nothing on its own. Validation against a seeded repository
+    # produced a record reading "members 7, adjudicated 7" whose note listed six routes and disposed of
+    # all of them with the single phrase "All auth-checked" -- one of which was minting tokens for an
+    # arbitrary user id. The count was the metric, so the count is what got produced. These checks make
+    # the number derive from a per-member list instead of sitting beside it.
+    finding_ids = {f.get("id") for f in findings}
+    for c in cov_recs:
+        cid = c.get("coverage_id", "<no coverage_id>")
+        rows = c.get("adjudication")
+        if not isinstance(rows, list):
+            continue
+        rows = [r for r in rows if isinstance(r, dict)]
+        inspected = (c.get("inspected") or {}).get("count")
+        if isinstance(inspected, int) and inspected != len(rows):
+            out.append((cid, "E066", f"inspected.count={inspected} but {len(rows)} adjudication row(s) "
+                                     f"present; the count must be the length of the list, not a claim beside it"))
+        members = [str(r.get("member", "")).strip() for r in rows]
+        distinct = {m for m in members if m}
+        if len(distinct) != len(rows):
+            out.append((cid, "E068", f"{len(rows)} adjudication row(s) but {len(distinct)} distinct non-empty "
+                                     f"member id(s); blank or duplicated members inflate the population"))
+        for r in rows:
+            if r.get("verdict") != "CONFIRMED_WEAKNESS":
+                continue
+            ref = r.get("ref")
+            if not ref:
+                out.append((cid, "E067", f"member '{r.get('member')}' is CONFIRMED_WEAKNESS with no ref to a finding"))
+            elif finding_ids and ref not in finding_ids:
+                out.append((cid, "E067", f"member '{r.get('member')}' cites finding '{ref}', "
+                                         f"which is not in this run"))
+
     for fid, code, msg in out: print(f"[{code}] {fid}: {msg}")
 
     n = len(findings)

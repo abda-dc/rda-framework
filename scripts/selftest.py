@@ -161,8 +161,54 @@ _, out_ok = lint_finding({"attacker_controls":
 check("a properly adjudicated injection finding passes the gate",
       "[E064]" not in out_ok and "[E065]" not in out_ok, out_ok.strip()[-300:])
 
-# The linter must survive a malformed record with a violation, not a traceback, or one bad finding hides
-# every other finding's violations behind a stack trace.
+# A stated adjudication count is not an adjudication. Validation produced a coverage record claiming
+# "members 7, adjudicated 7" whose note listed six routes and disposed of all of them with one phrase,
+# burying a token-minting endpoint. These checks make the count derive from a per-member list.
+COV_FINDING = dict(INJ)
+COV_FINDING.update({"id": "F-1", "coverage_ref": "COV-1",
+                    "attacker_controls": "Caller supplies a value only; the executed structure is a module "
+                                         "constant, so no attacker-controlled structure reaches the sink."})
+
+
+def lint_coverage(adjudication, inspected_count):
+    rec = {"coverage_id": "COV-1", "skill_id": "rda-11",
+           "population": {"definition": "routes", "count": inspected_count, "source": "grep"},
+           "inspected": {"count": inspected_count, "selection": "EXHAUSTIVE"},
+           "method": "read", "blind_spots": [], "adjudication": adjudication}
+    paths = []
+    for payload in ([COV_FINDING], {"coverage": [rec]}):
+        fd, p = tempfile.mkstemp(suffix=".json")
+        os.close(fd)
+        with open(p, "w", encoding="utf-8", newline="\n") as fh:
+            json.dump(payload, fh)
+        paths.append(p)
+    try:
+        return run(PY, script("validate_findings.py"), paths[0], "--coverage", paths[1])
+    finally:
+        for p in paths:
+            os.unlink(p)
+
+
+_, cov_short = lint_coverage([{"member": "/health", "verdict": "NOT_APPLICABLE"}], 7)
+check("adjudication count asserted above the listed members is rejected (E066)",
+      "[E066]" in cov_short, cov_short.strip()[-300:])
+
+_, cov_blank = lint_coverage([{"member": "/health", "verdict": "NOT_APPLICABLE"},
+                              {"member": "", "verdict": "MITIGATED"}], 2)
+check("blank or duplicated population members are rejected (E068)",
+      "[E068]" in cov_blank, cov_blank.strip()[-300:])
+
+_, cov_dropped = lint_coverage([{"member": "/impersonate", "verdict": "CONFIRMED_WEAKNESS"}], 1)
+check("a confirmed member with no finding to carry it is rejected (E067)",
+      "[E067]" in cov_dropped, cov_dropped.strip()[-300:])
+
+_, cov_ok = lint_coverage([{"member": "/health", "verdict": "NOT_APPLICABLE", "basis": "no data access"},
+                           {"member": "/invoices", "verdict": "CONFIRMED_WEAKNESS", "ref": "F-1",
+                            "basis": "no tenant check"}], 2)
+check("an honestly adjudicated population passes the coverage gate",
+      not any(c in cov_ok for c in ("[E066]", "[E067]", "[E068]")), cov_ok.strip()[-300:])
+
+
 fd, badpath = tempfile.mkstemp(suffix=".json")
 os.close(fd)
 with open(badpath, "w", encoding="utf-8", newline="\n") as fh:
