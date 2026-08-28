@@ -24,6 +24,21 @@ EV_KINDS = {"SOURCE","CONFIG","TOOL_OUTPUT","VCS_HISTORY","DOC","TEST_RESULT","R
 # would be quarantined at verification despite being schema-valid.
 PINNED_KINDS = {"SOURCE", "CONFIG", "VCS_HISTORY", "DOC"}
 
+# Injection-class weaknesses turn on one question: does the attacker control the executed *structure*, or
+# only a value substituted into it? RDA-11 s5b requires that answer in writing before the verdict, because
+# validation against a seeded repository showed the "plausible-vulnerability flood" the skill documents is
+# only constrained, not eliminated, by the generator rule -- an eval() over a module-level constant was
+# reported as MAJOR code injection when no scanner was installable. Detection is by CWE first (the reliable
+# signal) and by title wording only as a fallback, so a finding that omits a CWE cannot dodge the check.
+INJECTION_CWES = {
+    "CWE-89", "CWE-78", "CWE-77", "CWE-79", "CWE-94", "CWE-95", "CWE-502",
+    "CWE-611", "CWE-918", "CWE-22", "CWE-90", "CWE-91", "CWE-643", "CWE-1336",
+}
+INJECTION_WORDS = re.compile(
+    r"\b(sql[- ]?injection|command[- ]?injection|code[- ]?injection|remote code execution|\brce\b|"
+    r"deseriali[sz]ation|ssrf|server[- ]side request forgery|path traversal|directory traversal|"
+    r"xxe|xml external entity|template injection|\bxss\b|cross[- ]site scripting)\b", re.I)
+
 # RS-1 s1 severity matrix (impact x likelihood -> severity), applied mechanically so two runs agree.
 MATRIX = {
     "SEVERE":     {"RARE":"MEDIUM","UNLIKELY":"HIGH","POSSIBLE":"HIGH","LIKELY":"CRITICAL","ALMOST_CERTAIN":"CRITICAL"},
@@ -225,6 +240,24 @@ def check(f, out, coverage_ids, coverage_meta, schema):
     if cc == "EXTERNAL_VALIDATION_REQUIRED" and not ((f.get("external_validation") or {}).get("question")):
         err(out, fid, "E062", "EXTERNAL_VALIDATION_REQUIRED without the question to ask")
 
+    # --- injection-class adjudication (RDA-11 s5b) ---------------------------
+    # A dangerous-looking sink is not a weakness until the attacker-controlled structure reaching it is
+    # named. Without this the class is reported on sink shape alone, which is exactly how a constant-format
+    # eval() becomes "code injection".
+    cwes = {str(c).upper() for c in (f.get("standard_refs") or []) if isinstance(c, str)}
+    is_injection = bool(cwes & INJECTION_CWES) or (not cwes and INJECTION_WORDS.search(st))
+    if is_injection:
+        ac = f.get("attacker_controls")
+        ac_text = " ".join(str(v) for v in ac.values()) if isinstance(ac, dict) else str(ac or "")
+        if not ac_text.strip():
+            err(out, fid, "E064",
+                "injection-class finding without attacker_controls; name the attacker-supplied input and "
+                "each hop to the sink, or record NOT_APPLICABLE/UNDECIDABLE (RDA-11 s5b)")
+        elif not re.search(r"\bstructure\b|\bvalue\b|\bdata\b", ac_text, re.I):
+            err(out, fid, "E065",
+                "attacker_controls does not state whether the attacker controls the executed structure or "
+                "only a substituted value; that distinction is what the class turns on (RDA-11 s5b)")
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("findings"); ap.add_argument("--coverage")
@@ -258,7 +291,22 @@ def main():
             print(f"WARN: coverage file unreadable ({e}); skipping coverage cross-check")
 
     out = []
-    for f in findings: check(f, out, cov_ids, cov_meta, schema)
+    for f in findings:
+        # A mistyped field must surface as a violation, not a traceback. Without this a single bad record
+        # aborts the run and the operator sees a stack trace instead of every other finding's violations --
+        # the linter would fail open on everything after the first malformed record.
+        if not isinstance(f, dict):
+            out.append(("<non-object>", "E003", f"finding is {type(f).__name__}, expected an object"))
+            continue
+        try:
+            check(f, out, cov_ids, cov_meta, schema)
+        except Exception as e:
+            out.append((str(f.get("id", "<no id>")), "E004",
+                        f"finding could not be checked ({type(e).__name__}: {e}); "
+                        f"the record is malformed -- fix it and re-run"))
+    # Summary statistics below index into findings; a non-object would crash them after the violations
+    # above were already collected, losing the report the operator needs.
+    findings = [f for f in findings if isinstance(f, dict)]
     for fid, code, msg in out: print(f"[{code}] {fid}: {msg}")
 
     n = len(findings)

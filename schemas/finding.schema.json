@@ -65,6 +65,7 @@
       }
     },
     "standard_refs": {"type":"array","items":{"type":"string"},"description":"CWE / OWASP / NIST SSDF / ISO 25010 / control ids. Reference only; never asserts certification status."},
+    "attacker_controls": {"type":"string","description":"Required by RDA-11 s5b for injection, deserialisation, SSRF, path-traversal and code-execution findings: the attacker-supplied input, the parameter carrying it, each hop to the sink, and explicitly whether the attacker controls the executed STRUCTURE or only a VALUE substituted into it. Injection requires the former; a value interpolated as data by a parameterising layer or substituted into a constant format string is NOT_APPLICABLE."},
     "quarantined": {"type":"boolean","default":false,"description":"Set by the citation verifier when evidence fails to resolve. Quarantined findings MUST NOT appear in any executive output."}
   },
   "$defs": {

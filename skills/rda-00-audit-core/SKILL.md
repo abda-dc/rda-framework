@@ -36,10 +36,14 @@ weakness is exploitable (`HYPOTHESIS`), that code is dead (`HYPOTHESIS`), that a
 absent), that something will scale to N (`EXTERNAL`), incident or MTTR history (`EXTERNAL`), or that data
 resides in a region (`HYPOTHESIS` — IaC is intent, not state).
 
-**3. Show the denominator.** Every section states what population it examined and what fraction of it it saw,
-using the census counts from RDA-02. "Reviewed the codebase" is a lie when you read 3% of it. Absence of
-evidence is `UNKNOWN` with a coverage record, never "no issues found". `No issues found` requires exhaustive
-coverage of a stated population.
+**3. Show the denominator, then account for every member of it.** Every section states what population it
+examined and what fraction of it it saw, using the census counts from RDA-02. "Reviewed the codebase" is a lie
+when you read 3% of it. Absence of evidence is `UNKNOWN` with a coverage record, never "no issues found".
+`No issues found` requires exhaustive coverage of a stated population. **A population is not answered by its
+first interesting member.** Where a section adjudicates a population, every member gets its own verdict and
+every confirmed member its own finding; report `<population>: <n> members, <n> adjudicated`. A defect class
+seldom occurs once, and the second site is usually the unguarded one — the first is where attention stopped.
+A member left unadjudicated is a counted blind spot in the coverage record, never a silent omission.
 
 **4. Search for the opposite.** Before writing any finding, run one query that would disprove it (the auth
 middleware you did not open, the caller you did not grep for, the config that overrides the default). Record

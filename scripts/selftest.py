@@ -93,6 +93,7 @@ EXPECTED = {
     "E061": "coverage_ref does not resolve",
     "E062": "EXTERNAL_VALIDATION_REQUIRED with no question",
     "E063": "prose cites a coverage record that does not exist",
+    "E064": "injection-class finding with no attacker_controls chain",
 }
 missing = sorted(c for c in EXPECTED if f"[{c}]" not in out)
 check(f"all {len(EXPECTED)} representative violation codes fire", not missing,
@@ -103,6 +104,74 @@ check(f"all {len(EXPECTED)} representative violation codes fire", not missing,
 rc_clean, out_clean = run(PY, script("validate_findings.py"), clean, "--coverage", cov)
 check("no violation code fires on the conforming example",
       not re.findall(r"^\[E\d+\]", out_clean, re.M), out_clean.strip()[-400:])
+
+# The injection adjudication gate (RDA-11 s5b), both directions. This exists because validation against a
+# seeded repository showed the "plausible-vulnerability flood" the skill documents survives its own
+# controls: an eval() over a module-level constant was reported as MAJOR code injection. The gate is only
+# worth anything if the correctly-adjudicated form passes, so assert that too -- otherwise the fix is just
+# a blanket ban on reporting injection.
+INJ = {
+    "id": "F-INJ", "skill_id": "RDA-11", "run_id": "run-selftest",
+    "title": "Code injection via eval() in the templating helper",
+    "claim_class": "INFERENCE",
+    "statement": "The templating module calls eval() on a format string, permitting code injection.",
+    "derivation": "Fact 1 shows the eval call. Fact 2 shows the format string's definition.",
+    "evidence": [
+        {"kind": "SOURCE", "locator": "src/templating.py#L12-L12",
+         "commit": "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4", "independence_group": "read"},
+        {"kind": "SOURCE", "locator": "src/templating.py#L7-L7",
+         "commit": "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4", "independence_group": "grep"}],
+    "confidence": {"level": "C3", "basis": "CC-1 s1: two independent source citations"},
+    "coverage_ref": "COV-INJ",
+    "severity": {"level": "HIGH", "impact": "MAJOR", "likelihood": "POSSIBLE",
+                 "rationale": "Arbitrary code execution in the rendering path"},
+    "blast_radius": "Invoice rendering only.",
+    "how_to_refute": "Show the evaluated format string is a module constant.",
+    "disconfirming_check": "Read every caller of render_header for a caller-supplied template.",
+    "remediation": {"action": "Replace eval with str.format over an explicit mapping."},
+    "standard_refs": ["CWE-94"], "quarantined": False,
+}
+
+
+def lint_finding(extra):
+    f = dict(INJ)
+    f.update(extra)
+    fd, path = tempfile.mkstemp(suffix=".json")
+    os.close(fd)
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump([f], fh)
+    try:
+        return run(PY, script("validate_findings.py"), path)
+    finally:
+        os.unlink(path)
+
+
+_, out_no_ac = lint_finding({})
+check("injection finding with no attacker_controls is rejected (E064)",
+      "[E064]" in out_no_ac, out_no_ac.strip()[-300:])
+
+_, out_vague = lint_finding({"attacker_controls": "the tenant name argument"})
+check("attacker_controls that dodges the structure/value question is rejected (E065)",
+      "[E065]" in out_vague, out_vague.strip()[-300:])
+
+_, out_ok = lint_finding({"attacker_controls":
+                          "Caller supplies tenant, reference and currency as values only; the executed "
+                          "structure is the module constant _HEADER, so no attacker-controlled structure "
+                          "reaches the eval sink."})
+check("a properly adjudicated injection finding passes the gate",
+      "[E064]" not in out_ok and "[E065]" not in out_ok, out_ok.strip()[-300:])
+
+# The linter must survive a malformed record with a violation, not a traceback, or one bad finding hides
+# every other finding's violations behind a stack trace.
+fd, badpath = tempfile.mkstemp(suffix=".json")
+os.close(fd)
+with open(badpath, "w", encoding="utf-8", newline="\n") as fh:
+    fh.write('[{"id":"BAD-1","severity":"HIGH"},"not-an-object"]')
+rc_bad, out_bad = run(PY, script("validate_findings.py"), badpath)
+os.unlink(badpath)
+check("malformed findings report violations instead of crashing",
+      rc_bad == 1 and "Traceback" not in out_bad and "[E003]" in out_bad and "[E004]" in out_bad,
+      out_bad.strip()[-400:])
 
 # --- 4. citation verifier fails closed --------------------------------------------------------------
 print("\n[4] citation verifier")

@@ -60,14 +60,28 @@ deserialisation sinks (`pickle.loads`, `yaml.load` without `SafeLoader`, `Object
 built from user-controlled hosts (SSRF); upload handlers with no type or size constraint. Each query is named
 and its population counted.
 
+**Every member of every population gets its own verdict and, if confirmed, its own finding.** A query is not
+answered by its first hit: enumerate, adjudicate each member, print `<query>: <n> members, <n> adjudicated`.
+An unadjudicated member is a counted blind spot, never a silent omission. The second instance is usually the
+unguarded one, because the first is where attention went — validation caught a weak comparison confirmed in the
+token path but missed in ops-console, and an unauthorised route raised while its token-minting sibling was not.
+
 **5. Adjudicate one candidate at a time, with flow context.** Read the sink, the source, every hop between, the
 framework's escaping behaviour, the middleware chain and the config that enables the control. Emit exactly one
 verdict: `CONFIRMED_WEAKNESS` (path exists as described) · `MITIGATED` (cite the control) · `NOT_APPLICABLE`
 (the rule's precondition is false here) · `UNDECIDABLE` (needs runtime or an out-of-scope artifact). Every
 verdict cites evidence; `MITIGATED` without a cited control is not a verdict. **The rule that governs this
 skill:** a finding exists only if a tool rule id or a named step-4 query generated it. Freehand discovery from
-raw source is out of contract, because generation at scale emits plausible invalid reports faster than any
-reviewer can disprove them, while adjudication with flow context supplies exactly what the tool cannot see.
+raw source is out of contract — generation at scale emits plausible invalid reports faster than any reviewer
+can disprove them, while adjudication with flow context supplies exactly what the tool cannot see.
+
+**5b. Name the attacker's control before any injection-class verdict.** For injection, deserialisation, SSRF,
+path-traversal and code-execution candidates, write `attacker_controls` before the verdict — the input, the
+parameter carrying it, each hop to the sink — then answer the question the class turns on: **does the attacker
+control the executed structure, or only a value substituted into it?** Injection requires the former. A value
+interpolated as data by a parameterising layer, or substituted into a module-level constant format string, is
+`NOT_APPLICABLE` however alarming the sink's name; an incompletable chain is `UNDECIDABLE` and ships as a
+verification task. A dangerous construct with no attacker-controlled structure may not exceed MINOR.
 
 **6. SSVC decision, not a CVSS rank.** Combine exposure (from RDA-03: internet-reachable, authenticated-only,
 internal), exploitation status for any dependency-borne component, technical impact and mission impact into
@@ -124,15 +138,21 @@ Whether a gateway, WAF or mesh enforces the control outside this repository · w
 internet-reachable · whether the path is enabled in production config.
 
 ## Known limitations
-Two ways this skill produces a wrong answer. **(a) The plausible-vulnerability flood** — the model reads code
-and writes a fluent injection report about an already-parameterised query; prevented by the generator rule (tool
-rule id or named structural query only), the provenance field, and the C3 floor. **(b) The
-unauthenticated-endpoint scare** — auth enforced by a middleware, gateway or base class nobody opened; prevented
-by step 4's chain join and step 7's opposite-direction query, with `MITIGATED` requiring a cited control.
+Three ways this skill produces a wrong answer. **(a) The plausible-vulnerability flood** — a fluent injection
+report about an already-parameterised query, or a sink whose structure the attacker does not control.
+Constrained by the generator rule, the provenance field, the C3 floor and step 5b; **constrained, not
+eliminated.** Validation against a seeded repository showed it survives when no engine is installable: under
+the degraded step-2 path an `eval()` over a module-level constant was reported as MAJOR code injection, once
+with the explicit and false claim that caller-supplied values reached it. **(b) The unauthenticated-endpoint
+scare** — auth enforced by a middleware, gateway or base class nobody opened; prevented by step 4's chain join
+and step 7's opposite-direction query, with `MITIGATED` requiring a cited control. **(c) First-instance
+stopping** — a class closed at its first site while a second goes unexamined; prevented only by step 4's
+population count, the one control here that is counted, not asserted.
 
 ## Success criteria
-Every finding traces to a generator id · none asserts exploitability · every HIGH/CRITICAL is C3+ with an SSVC
-decision · the discard list is published · entry-point auth coverage is a fraction of the RDA-03 population.
+Every finding traces to a generator id · none asserts exploitability · every injection-class finding carries a
+completed `attacker_controls` chain · every structural query prints `members` and `adjudicated`, equal or the
+shortfall counted · every HIGH/CRITICAL is C3+ with an SSVC decision · the discard list is published.
 
 ## Example prompts
 - Claude Code / Cursor: "Run rda-11-security-posture-review: semgrep and CodeQL first, then adjudicate each candidate against the RDA-03 route table."
