@@ -39,6 +39,12 @@ BLANKET_RE = re.compile(
     r"vulnerable|exploitable|unsafe|insecure|affected|at risk|impacted"
     r")\b)", re.I)
 
+# An assertion that the adjudication happened, with none of it recorded: "adjudicated 6",
+# "6/6 auth verdicts", "20/20 adjudicated". Matches the claim, not an honest reading count.
+ADJ_CLAIM_RE = re.compile(
+    r"\b\d+\s*/\s*\d+\b[^.]{0,40}?\b(adjudicat\w*|verdicts?|cleared|dispositioned)\b"
+    r"|\badjudicated\b\s*[:=]?\s*\d+", re.I)
+
 # Injection-class weaknesses turn on one question: does the attacker control the executed *structure*, or
 # only a value substituted into it? RDA-11 s5b requires that answer in writing before the verdict, because
 # validation against a seeded repository showed the "plausible-vulnerability flood" the skill documents is
@@ -334,13 +340,24 @@ def main():
         cid = c.get("coverage_id", "<no coverage_id>")
         rows = c.get("adjudication")
         if not isinstance(rows, list):
+            note = str(c.get("note", "") or "")
             # A census may legitimately state only a count ("all 34 tracked files read at HEAD").
             # Disposing of a whole population in one sentence is a different act: it is a verdict on
             # every member, and a verdict owes a per-member record. This is the exact shape of the
             # regression above, so it is caught even when `adjudication` is omitted entirely.
-            if BLANKET_RE.search(str(c.get("note", "") or "")):
+            if BLANKET_RE.search(note):
                 out.append((cid, "E069", "note disposes of the whole population in one phrase but no "
                                          "adjudication list is present; a blanket verdict owes a per-member record"))
+            # Weaker but commoner: claiming the adjudication happened without recording any of it
+            # ("members 6, adjudicated 6", "6/6 auth verdicts"). Reading N members is an action and
+            # needs only a count; adjudicating N is a verdict on each one and owes the list.
+            claimed = c.get("adjudicated")
+            if isinstance(claimed, int) and claimed > 0:
+                out.append((cid, "E070", f"claims {claimed} member(s) adjudicated but carries no adjudication "
+                                         f"list; a verdict count must be the length of a record, not a claim"))
+            elif ADJ_CLAIM_RE.search(note):
+                out.append((cid, "E070", "note asserts that the population was adjudicated but carries no "
+                                         "adjudication list; state the per-member verdicts or drop the claim"))
             continue
         rows = [r for r in rows if isinstance(r, dict)]
         inspected = (c.get("inspected") or {}).get("count")

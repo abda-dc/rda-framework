@@ -170,7 +170,7 @@ COV_FINDING.update({"id": "F-1", "coverage_ref": "COV-1",
                                          "constant, so no attacker-controlled structure reaches the sink."})
 
 
-def lint_coverage(adjudication, inspected_count, note=None):
+def lint_coverage(adjudication, inspected_count, note=None, extra=None):
     rec = {"coverage_id": "COV-1", "skill_id": "rda-11",
            "population": {"definition": "routes", "count": inspected_count, "source": "grep"},
            "inspected": {"count": inspected_count, "selection": "EXHAUSTIVE"},
@@ -179,6 +179,8 @@ def lint_coverage(adjudication, inspected_count, note=None):
         rec["adjudication"] = adjudication
     if note is not None:
         rec["note"] = note
+    if extra:
+        rec.update(extra)
     paths = []
     for payload in ([COV_FINDING], {"coverage": [rec]}):
         fd, p = tempfile.mkstemp(suffix=".json")
@@ -226,6 +228,21 @@ check("the same blanket verdict stated in the negative is also rejected (E069)",
 _, cov_census = lint_coverage(None, 34, note="All 34 tracked files read at HEAD. git ls-files | wc -l = 34.")
 check("an honest census that counts without disposing is still allowed",
       "[E069]" not in cov_census, cov_census.strip()[-300:])
+
+# Quieter than a blanket verdict and just as empty: asserting that the adjudication happened without
+# recording any of it. A second model produced exactly this -- "6/6 auth verdicts ... 20/20
+# adjudicated" -- and slipped past the blanket-disposal check because it disposes of nothing.
+_, cov_claim = lint_coverage(None, 6, extra={"adjudicated": 6})
+check("an adjudication count claimed with no list to back it is rejected (E070)",
+      "[E070]" in cov_claim, cov_claim.strip()[-300:])
+
+_, cov_claim_note = lint_coverage(None, 6, note="6/6 auth verdicts. Combined raw candidates 20/20 adjudicated.")
+check("the same claim made only in prose is also rejected (E070)",
+      "[E070]" in cov_claim_note, cov_claim_note.strip()[-300:])
+
+_, cov_read = lint_coverage(None, 34, note="34 tracked files read at HEAD; git ls-files | wc -l = 34.")
+check("reading a population is an action, not a verdict, and stays legal",
+      "[E070]" not in cov_read, cov_read.strip()[-300:])
 
 
 fd, badpath = tempfile.mkstemp(suffix=".json")
