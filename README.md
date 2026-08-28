@@ -56,7 +56,7 @@ New here? Read [`docs/00-START-HERE.md`](docs/00-START-HERE.md).
 ## Verify it works
 
 ```bash
-python3 scripts/selftest.py                          # every gate, both directions (70/70 codes)
+python3 scripts/selftest.py                          # every gate, both directions (72/72 codes)
 ```
 
 Or run the gates individually:
@@ -82,7 +82,7 @@ tree without touching it, so "generated, never hand-maintained" is verified rath
 under the dependency graph.
 
 Both linters are tested in **both** directions, and every code either linter can emit is proven to fire by a
-deliberate violation — 70/70 codes. `templates/example-findings-invalid.json` is a malformed fixture that must
+deliberate violation — 72/72 codes. `templates/example-findings-invalid.json` is a malformed fixture that must
 trip 44 violations across 28 distinct codes; the conforming example must trip none. A gate that quietly stopped
 enforcing would pass a one-sided test and fail this one, and a code added without a test fails the suite.
 

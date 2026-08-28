@@ -502,6 +502,25 @@ for code, desc, writer in PACK_CASES:
     out = _pack(writer)
     check(f"{code} rejects {desc}", f"[{code}]" in out or code in out, out.strip()[-300:])
 
+# E132 and E133 need more than one skill, and a repository root, so they get purpose-built packs rather
+# than the single-skill harness above.
+with tempfile.TemporaryDirectory() as td:
+    for _d, _v in ((_PACK_DIR, "1.0.0"), ("rda-12-data-governance-privacy", "2.0.0")):
+        os.mkdir(os.path.join(td, _d))
+        open(os.path.join(td, _d, "SKILL.md"), "w", encoding="utf-8",
+             newline="\n").write(_fmset(name=_d, version=_v) + _BODY)
+    _, out = run(PY, script("validate_pack.py"), td)
+    check("E132 rejects skills that disagree on a pack-wide field", "E132" in out, out.strip()[-300:])
+
+with tempfile.TemporaryDirectory() as td:
+    os.makedirs(os.path.join(td, "skills", _PACK_DIR))
+    open(os.path.join(td, "skills", _PACK_DIR, "SKILL.md"), "w", encoding="utf-8",
+         newline="\n").write(_FM + _BODY)
+    open(os.path.join(td, "README.md"), "w", encoding="utf-8",
+         newline="\n").write("# RDA -- some pack v9.9\n\nbody\n")
+    _, out = run(PY, script("validate_pack.py"), os.path.join(td, "skills"))
+    check("E133 rejects a prose version that disagrees with the pack", "E133" in out, out.strip()[-300:])
+
 # E141 needs the real pack: a profile that lists a skill id the pack does not contain.
 _unknown_prof = re.sub(r'(P4A\)\s*IDS=")', r"\g<1>99 ", inst, count=1)
 with tempfile.TemporaryDirectory() as td:

@@ -15,6 +15,9 @@ Usage: python3 validate_pack.py [skills_dir] [--max-desc 200] [--max-lines 160] 
 import argparse, os, re, sys
 
 REQUIRED_FM = ["name", "description", "version", "license"]
+# Fields every skill must not merely carry, but agree on. Thirty-eight files each declared version 1.0.0
+# and Apache-2.0 and nothing ever compared them, so uniformity held by care rather than by enforcement.
+UNIFORM_FM = ["version", "license"]
 REQUIRED_SECTIONS = ["Purpose","Business value","When to use","When NOT to use","Inputs","Procedure","Outputs",
     "Evidence requirements","Fact vs inference rules","Confidence scoring rules","Repository coverage rules",
     "Large repository strategy","Failure conditions","Escalation conditions","External validation required",
@@ -72,6 +75,7 @@ def main():
     a = ap.parse_args()
 
     problems, meta_budget, seen, deps, texts, fanin, per_skill = [], 0, {}, {}, {}, set(), {}
+    uniform = {}
     dirs = sorted(d for d in os.listdir(a.skills_dir) if os.path.isdir(os.path.join(a.skills_dir, d)))
     for d in dirs:
         p = os.path.join(a.skills_dir, d, "SKILL.md")
@@ -84,6 +88,8 @@ def main():
             problems.append((d, "E101", "missing YAML frontmatter")); continue
         for k in REQUIRED_FM:
             if k not in fm: problems.append((d, "E102", f"frontmatter missing '{k}'"))
+        for k in UNIFORM_FM:
+            uniform.setdefault(k, {}).setdefault(fm.get(k, "(absent)"), []).append(d)
         name = fm.get("name", "")
         if name != d: problems.append((d, "E103", f"name '{name}' != directory '{d}'"))
         if not NAME_RE.match(name): problems.append((d, "E104", f"name '{name}' invalid charset (lowercase/digits/single hyphens)"))
@@ -144,6 +150,31 @@ def main():
             elif dep not in installed:
                 warnings.append((d, "W131", f"depends_on '{dep}' which is not in this install -- expected for a "
                                             f"profile install, a defect for a full pack"))
+
+    # Agreement, not merely presence. E102 asks whether a skill declares a version; nothing asked whether the
+    # thirty-eight declarations matched each other. RDA-37 step 1 requires an operator to "assert matching skill
+    # versions" across registers, so the pack demanded of its subjects a property it never verified in itself.
+    # One bumped file would have shipped a pack speaking with two voices and drawn no complaint.
+    for k in UNIFORM_FM:
+        vals = uniform.get(k, {})
+        if len(vals) > 1:
+            spread = "; ".join(f"'{v}' in {len(ds)}" for v, ds in sorted(vals.items()))
+            problems.append(("pack", "E132", f"frontmatter '{k}' disagrees across the pack: {spread}"))
+
+    # The version is also asserted in prose, where nothing else in this file can see it. README.md and
+    # CATALOG.md carry it in their titles; documented figures elsewhere in this repo had already drifted
+    # unnoticed. The rule is that wherever the version is stated, it must be the real one.
+    _vals = list(uniform.get("version", {}))
+    if len(_vals) == 1:
+        mm = ".".join(_vals[0].split(".")[:2])
+        root = os.path.dirname(os.path.abspath(a.skills_dir))
+        for doc in ("README.md", "CATALOG.md"):
+            dp = os.path.join(root, doc)
+            if not os.path.exists(dp): continue
+            head = "\n".join(open(dp, encoding="utf-8").read().splitlines()[:3])
+            m = re.search(r"\bv(\d+\.\d+)", head)
+            if m and m.group(1) != mm:
+                problems.append((doc, "E133", f"title says v{m.group(1)} but the pack declares {_vals[0]}"))
 
     # Profile dependency closure. PROFILES.md claims every profile is closed under the dependency graph;
     # nothing checked it, and P4A shipped depending on RDA-19, a skill scheduled in the later P4B phase --
